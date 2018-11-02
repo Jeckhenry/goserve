@@ -3,11 +3,11 @@ package serveInfo
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/gorilla/schema"
 	"log"
 	"mysqlInfo"
 	"net/http"
 	"sqlAddtional"
+	"strconv"
 	"strings"
 )
 //操作数据库返回信息
@@ -15,10 +15,12 @@ type Reback struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
 }
-var decoder = schema.NewDecoder()
-
-type delarr struct {
-	ids []int
+type Server struct {
+	ArticleId int
+	LabelId int
+}
+type ServerSlice struct {
+	Ids []Server
 }
 func StartServe(){
 	//标签新增/更新接口
@@ -88,8 +90,8 @@ func StartServe(){
 	http.HandleFunc("/delLabel", func(writer http.ResponseWriter, request *http.Request) {
 		request.ParseForm()
 		ids := request.FormValue("ids")
-		ids = ids[1:len(ids)-1]
-		idarr := strings.Split(ids,",")
+		idsmid := ids[1:len(ids)-1]
+		idarr := strings.Split(idsmid,",")
 		var sqlword string
 		var err error
 		for _,val := range idarr {
@@ -111,19 +113,26 @@ func StartServe(){
 		b,_ := json.Marshal(res)
 		fmt.Fprint(writer,string(b))
 	})
-	//文章信息录入接口
+	//文章信息录入/更新接口
 	http.HandleFunc("/addArticle", func(writer http.ResponseWriter, request *http.Request) {
 		articleName := request.FormValue("articleName")
-		articleLabel := request.FormValue("articleLabel")
 		articleInfo := request.FormValue("articleInfo")
 		labelId := request.FormValue("labelId")
 		subdate := sqlAddtional.NowDate() //提交时间
-		sqlword := "insert into articles(articleTitle,articleInfo,articleLabel,labelId," +
-			"subDate) values('"+articleName+"','"+articleInfo+"','"+articleLabel+"','"+labelId+"'" +
-			",'"+subdate+"')"
-		_,err1 := mysqlInfo.DB.Exec(sqlword)
+		articleId := request.FormValue("articleId") //文章id，以此判断是否是修改操作
+		var err1,err2 error
+		var sqlword string
+		if (articleId != "") {
+			sqlword = "update articles set articleTitle='"+articleName+"'," +
+				"articleInfo='"+articleInfo+"',labelId='"+labelId+"',subDate='"+subdate+"' where articleId='"+articleId+"'"
+		}else {
+			sqlword = "insert into articles(articleTitle,articleInfo,labelId," +
+				"subDate) values('"+articleName+"','"+articleInfo+"','"+labelId+"'" +
+				",'"+subdate+"')"
+		}
+		_,err1 = mysqlInfo.DB.Exec(sqlword)
 		sqlword = "update labels set isUse=1 where labelId='"+labelId+"'"
-		_,err2 := mysqlInfo.DB.Exec(sqlword)
+		_,err2 = mysqlInfo.DB.Exec(sqlword)
 		res := make(map[string]interface{})
 		if err1 != nil || err2 != nil {
 			log.Fatal(err1.Error(),err2.Error())
@@ -138,8 +147,7 @@ func StartServe(){
 	})
 	//文章信息查询接口
 	http.HandleFunc("/articleInfo", func(writer http.ResponseWriter, request *http.Request) {
-		sqlword := "select articleTitle,articleInfo,articleId,articleLabel," +
-			"subDate,labelId from articles"
+		sqlword := "SELECT * FROM articles INNER JOIN labels USING (labelId)"
 		rows,_ := mysqlInfo.DB.Query(sqlword)
 		var err1 error
 		res := make(map[string]interface{})
@@ -147,8 +155,8 @@ func StartServe(){
 		for rows.Next()  {
 			single := make(map[string]interface{})
 			var articletitle,articleinfo,subdate,articlelabel string
-			var articleid,labelid int
-			err1 = rows.Scan(&articletitle,&articleinfo,&articleid,&articlelabel,&subdate,&labelid)
+			var articleid,labelid,isuse int
+			err1 = rows.Scan(&labelid,&articletitle,&articleinfo,&articleid,&subdate,&articlelabel,&isuse)
 			if err1 != nil {
 				fmt.Println(err1)
 				break
@@ -177,6 +185,123 @@ func StartServe(){
 		fmt.Fprint(writer,string(b))
 
 	})
+	//文章信息删除接口
+	http.HandleFunc("/delArticle", func(writer http.ResponseWriter, request *http.Request) {
+		request.ParseForm()
+		idsArr := request.FormValue("ids")
+		idsArr = `{"ids":`+idsArr+`}`
+		var s ServerSlice
+		json.Unmarshal([]byte(idsArr),&s)
+		var sqlword string
+		var err error
+		for _,val := range s.Ids {
+			articleid := strconv.Itoa(val.ArticleId)
+			//删除文章
+			sqlword = "delete from articles where articleId='"+articleid+"'"
+			_,err = mysqlInfo.DB.Exec(sqlword)
+			if err != nil {
+				log.Fatal(err)
+				break
+			}
+			//检索文章的标签id是否有关联的文章，没有就将标签的isUse置为0
+			labelid := strconv.Itoa(val.LabelId)
+			sqlword = "select articleTitle from articles where labelId='"+labelid+"'"
+			rows,_ := mysqlInfo.DB.Query(sqlword)
+			if rows.Next() == false {
+				sqlword = "update labels set isUse=0 where labelId='"+labelid+"'"
+				mysqlInfo.DB.Exec(sqlword)
+			}
+		}
+		res := make(map[string]interface{})
+		if err != nil {
+			res["code"] = 500
+			res["message"] = "操作失败"
+		}else {
+			res["code"] = 200
+			res["message"] = "操作成功"
+		}
+		b,_ := json.Marshal(res)
+		fmt.Fprint(writer,string(b))
+	})
+	//文章模糊查找接口
+	http.HandleFunc("/searcharticle", func(writer http.ResponseWriter, request *http.Request) {
+		title := request.FormValue("title")
+		sqlword := "SELECT * FROM articles as a INNER JOIN labels USING (labelId) where a.articleTitle like '%"+title+"%'"
+		rows,_ := mysqlInfo.DB.Query(sqlword)
+		var err error
+		res := make(map[string]interface{})
+		var datas []interface{}
+		for rows.Next() {
+			single := make(map[string]interface{})
+			var articletitle,articleinfo,subdate,articlelabel string
+			var articleid,labelid,isuse int
+			err = rows.Scan(&labelid,&articletitle,&articleinfo,&articleid,&subdate,&articlelabel,&isuse)
+			if err != nil {
+				fmt.Println(err)
+				break
+			}
+			single["articleTitle"] = articletitle
+			single["articleInfo"] = articleinfo
+			single["articleId"] = articleid
+			single["subDate"] = subdate
+			single["labelId"] = labelid
+			datas = append(datas,single)
+		}
+		if err != nil {
+			res["code"] = 500
+			res["message"] = "操作失败"
+		}else{
+			res["code"] = 200
+			res["message"] = "操作成功"
+			if len(datas) == 0 {
+				res["data"] = make([]string,0)
+			}else{
+				res["data"] = datas
+			}
+		}
+		b,_ := json.Marshal(res)
+		fmt.Fprint(writer,string(b))
+	})
+	//用户登陆
+	http.HandleFunc("/login", func(writer http.ResponseWriter, request *http.Request) {
+		username := request.FormValue("username")
+		userpad := request.FormValue("passwd")
+		sqlword := "select username,password from users where username='"+username+"'"
+		var userName,passWd string
+		err := mysqlInfo.DB.QueryRow(sqlword).Scan(&userName,&passWd)
+		res := make(map[string]interface{})
+		user := make(map[string]interface{})
+		if err != nil {
+			fmt.Println(err)
+			res["code"] = 500
+			res["message"] = "用户名不存在"
+		}else{
+			if (userpad == passWd){
+				user["username"] = userName
+				res["code"] = 200
+				res["message"] = "登录成功"
+				res["data"] = user
+				str := "testcookie"
+				cookie := http.Cookie{Name: "userinfo",Value: str}
+				http.SetCookie(writer,&cookie)
+			}else{
+				res["code"] = 500
+				res["message"] = "密码错误"
+			}
+		}
+		b,_ := json.Marshal(res)
+		fmt.Fprint(writer,string(b))
+	})
+	//测试cookie
+	http.HandleFunc("/cookie", func(writer http.ResponseWriter, request *http.Request) {
+		cookie,_ := request.Cookie("userinfo")
+		fmt.Fprint(writer,cookie)
+		dd := make(map[string]interface{})
+		dd["结果"] = cookie
+		b,_ := json.Marshal(dd)
+		fmt.Println(string(b), "cookie结果")
+	})
+
 	//开始监听
 	fmt.Println("端口9095服务已启动.....")
 	err := http.ListenAndServe(":9095",nil)
