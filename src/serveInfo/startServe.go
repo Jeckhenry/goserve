@@ -6,6 +6,7 @@ import (
 	"log"
 	"mysqlInfo"
 	"net/http"
+	"session"
 	"sqlAddtional"
 	"strconv"
 	"strings"
@@ -145,8 +146,12 @@ func StartServe(){
 		b,_ := json.Marshal(res)
 		fmt.Fprint(writer,string(b))
 	})
+	http.HandleFunc("/", func(writer http.ResponseWriter, request *http.Request) {
+		fmt.Println("匹配")
+	})
 	//文章信息查询接口
 	http.HandleFunc("/articleInfo", func(writer http.ResponseWriter, request *http.Request) {
+		session.Test_session_valid(writer,request)
 		sqlword := "SELECT * FROM articles INNER JOIN labels USING (labelId)"
 		rows,_ := mysqlInfo.DB.Query(sqlword)
 		var err1 error
@@ -294,13 +299,19 @@ func StartServe(){
 	})
 	//测试cookie
 	http.HandleFunc("/cookie", func(writer http.ResponseWriter, request *http.Request) {
-		cookie,_ := request.Cookie("userinfo")
-		fmt.Fprint(writer,cookie)
-		dd := make(map[string]interface{})
-		dd["结果"] = cookie
-		b,_ := json.Marshal(dd)
-		fmt.Println(string(b), "cookie结果")
+		session.Login(writer,request)
 	})
+	//用户退出
+	http.HandleFunc("/logout", func(writer http.ResponseWriter, request *http.Request) {
+		session.Logout(writer,request)
+	})
+		//cookie,_ := request.Cookie("userinfo")
+		//fmt.Fprint(writer,cookie)
+		//dd := make(map[string]interface{})
+		//dd["结果"] = cookie
+		//b,_ := json.Marshal(dd)
+		//fmt.Println(string(b), "cookie结果")
+
 
 	//开始监听
 	fmt.Println("端口9095服务已启动.....")
