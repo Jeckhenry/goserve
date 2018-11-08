@@ -1,15 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="7047e782-e3af-4fc6-88fe-dfd3a4de792f" name="默认更改列表" comment="">
-      <change afterPath="$PROJECT_DIR$/src/session/loginset.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pkg/windows_amd64/serveInfo.a" beforeDir="false" afterPath="$PROJECT_DIR$/pkg/windows_amd64/serveInfo.a" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pkg/windows_amd64/session.a" beforeDir="false" afterPath="$PROJECT_DIR$/pkg/windows_amd64/session.a" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/serveInfo/startServe.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/serveInfo/startServe.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/session/manger.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/session/manger.go" afterDir="false" />
-    </list>
+    <list default="true" id="7047e782-e3af-4fc6-88fe-dfd3a4de792f" name="默认更改列表" comment="" />
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
