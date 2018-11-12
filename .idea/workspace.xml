@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
+<<<<<<< HEAD
     <list default="true" id="7047e782-e3af-4fc6-88fe-dfd3a4de792f" name="默认更改列表" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
@@ -12,6 +13,9 @@
       <change beforePath="$PROJECT_DIR$/src/session/loginset.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/session/loginset.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/session/test.go" beforeDir="false" />
     </list>
+=======
+    <list default="true" id="7047e782-e3af-4fc6-88fe-dfd3a4de792f" name="默认更改列表" comment="" />
+>>>>>>> d7f80555ac0b53268f159998d4b76e9051930278
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
