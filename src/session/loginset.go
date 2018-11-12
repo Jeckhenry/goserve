@@ -80,14 +80,17 @@ func Logout(w http.ResponseWriter, r *http.Request) {
 	return
 }
 //在每个页面中进行用户合法性验证
-func Test_session_valid(w http.ResponseWriter, r *http.Request) {
+func Test_session_valid(w http.ResponseWriter, r *http.Request) string{
 	var sessionID = sessionMgr.CheckCookieValid(w, r)
 	if sessionID == "" {
 		resmsg = make(map[string]interface{})
-		resmsg["code"] = 500
+		resmsg["code"] = 401
 		resmsg["message"] = "用户未登录"
+		data := make([]string,0)
+		resmsg["data"] = data
 		b,_ := json.Marshal(resmsg)
 		fmt.Fprint(w,string(b))
-		return
+		return "err"
 	}
+	return  ""
 }

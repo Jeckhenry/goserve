@@ -3,6 +3,7 @@ package serveInfo
 import (
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"log"
 	"mysqlInfo"
 	"net/http"
@@ -26,6 +27,10 @@ type ServerSlice struct {
 func StartServe(){
 	//标签新增/更新接口
 	http.HandleFunc("/addLabel", func(writer http.ResponseWriter, request *http.Request) {
+		checkres := session.Test_session_valid(writer,request)
+		if checkres == "err" {
+			return
+		}
 		var labelname string
 		labelname = request.FormValue("labelName")
 		labelId := request.FormValue("id")
@@ -48,6 +53,10 @@ func StartServe(){
 	})
 	//查询标签信息
 	http.HandleFunc("/labelInfo", func(writer http.ResponseWriter, request *http.Request) {
+		checkres := session.Test_session_valid(writer,request)
+		if checkres == "err" {
+			return
+		}
 		sqlWord := "select labelId,labelName,isUse from labels"
 		rows,err := mysqlInfo.DB.Query(sqlWord)
 		var res Reback
@@ -89,6 +98,10 @@ func StartServe(){
 	})
 	//标签删除
 	http.HandleFunc("/delLabel", func(writer http.ResponseWriter, request *http.Request) {
+		checkres := session.Test_session_valid(writer,request)
+		if checkres == "err" {
+			return
+		}
 		request.ParseForm()
 		ids := request.FormValue("ids")
 		idsmid := ids[1:len(ids)-1]
@@ -116,6 +129,10 @@ func StartServe(){
 	})
 	//文章信息录入/更新接口
 	http.HandleFunc("/addArticle", func(writer http.ResponseWriter, request *http.Request) {
+		checkres := session.Test_session_valid(writer,request)
+		if checkres == "err" {
+			return
+		}
 		articleName := request.FormValue("articleName")
 		articleInfo := request.FormValue("articleInfo")
 		labelId := request.FormValue("labelId")
@@ -146,12 +163,12 @@ func StartServe(){
 		b,_ := json.Marshal(res)
 		fmt.Fprint(writer,string(b))
 	})
-	http.HandleFunc("/", func(writer http.ResponseWriter, request *http.Request) {
-		fmt.Println("匹配")
-	})
 	//文章信息查询接口
 	http.HandleFunc("/articleInfo", func(writer http.ResponseWriter, request *http.Request) {
-		session.Test_session_valid(writer,request)
+		checkres := session.Test_session_valid(writer,request)
+		if checkres == "err" {
+			return
+		}
 		sqlword := "SELECT * FROM articles INNER JOIN labels USING (labelId)"
 		rows,_ := mysqlInfo.DB.Query(sqlword)
 		var err1 error
@@ -163,7 +180,7 @@ func StartServe(){
 			var articleid,labelid,isuse int
 			err1 = rows.Scan(&labelid,&articletitle,&articleinfo,&articleid,&subdate,&articlelabel,&isuse)
 			if err1 != nil {
-				fmt.Println(err1)
+				fmt.Println(err1,"哈哈哈")
 				break
 			}
 			single["articleTitle"] = articletitle
@@ -192,6 +209,10 @@ func StartServe(){
 	})
 	//文章信息删除接口
 	http.HandleFunc("/delArticle", func(writer http.ResponseWriter, request *http.Request) {
+		checkres := session.Test_session_valid(writer,request)
+		if checkres == "err" {
+			return
+		}
 		request.ParseForm()
 		idsArr := request.FormValue("ids")
 		idsArr = `{"ids":`+idsArr+`}`
@@ -230,6 +251,10 @@ func StartServe(){
 	})
 	//文章模糊查找接口
 	http.HandleFunc("/searcharticle", func(writer http.ResponseWriter, request *http.Request) {
+		checkres := session.Test_session_valid(writer,request)
+		if checkres == "err" {
+			return
+		}
 		title := request.FormValue("title")
 		sqlword := "SELECT * FROM articles as a INNER JOIN labels USING (labelId) where a.articleTitle like '%"+title+"%'"
 		rows,_ := mysqlInfo.DB.Query(sqlword)
@@ -269,48 +294,19 @@ func StartServe(){
 	})
 	//用户登陆
 	http.HandleFunc("/login", func(writer http.ResponseWriter, request *http.Request) {
-		username := request.FormValue("username")
-		userpad := request.FormValue("passwd")
-		sqlword := "select username,password from users where username='"+username+"'"
-		var userName,passWd string
-		err := mysqlInfo.DB.QueryRow(sqlword).Scan(&userName,&passWd)
-		res := make(map[string]interface{})
-		user := make(map[string]interface{})
-		if err != nil {
-			fmt.Println(err)
-			res["code"] = 500
-			res["message"] = "用户名不存在"
-		}else{
-			if (userpad == passWd){
-				user["username"] = userName
-				res["code"] = 200
-				res["message"] = "登录成功"
-				res["data"] = user
-				str := "testcookie"
-				cookie := http.Cookie{Name: "userinfo",Value: str}
-				http.SetCookie(writer,&cookie)
-			}else{
-				res["code"] = 500
-				res["message"] = "密码错误"
-			}
-		}
-		b,_ := json.Marshal(res)
-		fmt.Fprint(writer,string(b))
-	})
-	//测试cookie
-	http.HandleFunc("/cookie", func(writer http.ResponseWriter, request *http.Request) {
 		session.Login(writer,request)
+	})
+	http.HandleFunc("/", func(writer http.ResponseWriter, request *http.Request) {
+		t,err := template.ParseFiles("index.html")
+		if err != nil {
+			fmt.Print("未找到文件")
+		}
+		t.Execute(writer,nil)
 	})
 	//用户退出
 	http.HandleFunc("/logout", func(writer http.ResponseWriter, request *http.Request) {
 		session.Logout(writer,request)
 	})
-		//cookie,_ := request.Cookie("userinfo")
-		//fmt.Fprint(writer,cookie)
-		//dd := make(map[string]interface{})
-		//dd["结果"] = cookie
-		//b,_ := json.Marshal(dd)
-		//fmt.Println(string(b), "cookie结果")
 
 
 	//开始监听
