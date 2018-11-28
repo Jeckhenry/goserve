@@ -10,7 +10,7 @@ import (
 const (
 	userName = "root"
 	password = "123456"
-	ip = "localhost"
+	ip = "47.104.227.155"
 	port = "3306"
 	dbName = "blogserve"
 )

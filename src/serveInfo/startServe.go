@@ -2,11 +2,14 @@ package serveInfo
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
-	"html/template"
 	"log"
 	"mysqlInfo"
 	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"session"
 	"sqlAddtional"
 	"strconv"
@@ -23,6 +26,24 @@ type Server struct {
 }
 type ServerSlice struct {
 	Ids []Server
+}
+func getCurrentPath() (string, error) {
+	file, err := exec.LookPath(os.Args[0])
+	if err != nil {
+		return "", err
+	}
+	path, err := filepath.Abs(file)
+	if err != nil {
+		return "", err
+	}
+	i := strings.LastIndex(path, "/")
+	if i < 0 {
+		i = strings.LastIndex(path, "\\")
+	}
+	if i < 0 {
+		return "", errors.New(`error: Can't find "/" or "\".`)
+	}
+	return string(path[0 : i+1]), nil
 }
 func StartServe(){
 	//标签新增/更新接口
@@ -129,31 +150,38 @@ func StartServe(){
 	})
 	//文章信息录入/更新接口
 	http.HandleFunc("/addArticle", func(writer http.ResponseWriter, request *http.Request) {
-		checkres := session.Test_session_valid(writer,request)
-		if checkres == "err" {
-			return
-		}
+		//checkres := session.Test_session_valid(writer,request)
+		//if checkres == "err" {
+		//	return
+		//}
 		articleName := request.FormValue("articleName")
 		articleInfo := request.FormValue("articleInfo")
 		labelId := request.FormValue("labelId")
+		articleReview := request.FormValue("articleReview")
 		subdate := sqlAddtional.NowDate() //提交时间
 		articleId := request.FormValue("articleId") //文章id，以此判断是否是修改操作
 		var err1,err2 error
 		var sqlword string
 		if (articleId != "") {
-			sqlword = "update articles set articleTitle='"+articleName+"'," +
+			sqlword = "update articles set articleReview='"+articleReview+"' articleTitle='"+articleName+"'," +
 				"articleInfo='"+articleInfo+"',labelId='"+labelId+"',subDate='"+subdate+"' where articleId='"+articleId+"'"
 		}else {
-			sqlword = "insert into articles(articleTitle,articleInfo,labelId," +
+			sqlword = "insert into articles(articleTitle,articleInfo,labelId,articleReview" +
 				"subDate) values('"+articleName+"','"+articleInfo+"','"+labelId+"'" +
-				",'"+subdate+"')"
+				",'"+subdate+"','"+articleReview+"')"
 		}
 		_,err1 = mysqlInfo.DB.Exec(sqlword)
+		if err1 != nil {
+			fmt.Println("更辛苦出错",err1)
+		}
 		sqlword = "update labels set isUse=1 where labelId='"+labelId+"'"
 		_,err2 = mysqlInfo.DB.Exec(sqlword)
+		if err2 != nil {
+			fmt.Println("更辛苦是否适用出错",err2)
+		}
 		res := make(map[string]interface{})
 		if err1 != nil || err2 != nil {
-			log.Fatal(err1.Error(),err2.Error())
+			log.Fatal(err1.Error(),err2.Error(),"最终出错")
 			res["code"] = 500
 			res["message"] = "操作失败"
 		}else{
@@ -165,27 +193,25 @@ func StartServe(){
 	})
 	//文章信息查询接口
 	http.HandleFunc("/articleInfo", func(writer http.ResponseWriter, request *http.Request) {
-		checkres := session.Test_session_valid(writer,request)
-		if checkres == "err" {
-			return
-		}
+		//checkres := session.Test_session_valid(writer,request)
+		//if checkres == "err" {
+		//	return
+		//}
 		sqlword := "SELECT * FROM articles INNER JOIN labels USING (labelId)"
-		rows,_ := mysqlInfo.DB.Query(sqlword)
+		rows,d := mysqlInfo.DB.Query(sqlword)
+		fmt.Println(d,"查询结果")
 		var err1 error
 		res := make(map[string]interface{})
 		var arr []interface{}
 		for rows.Next()  {
 			single := make(map[string]interface{})
-			var articletitle,articleinfo,subdate,articlelabel string
+			var articletitle,articleinfo,subdate,articlelabel,articleReview string
 			var articleid,labelid,isuse int
-			err1 = rows.Scan(&labelid,&articletitle,&articleinfo,&articleid,&subdate,&articlelabel,&isuse)
-			if err1 != nil {
-				fmt.Println(err1,"哈哈哈")
-				break
-			}
+			err1 = rows.Scan(&labelid,&articletitle,&articleinfo,&subdate,&articleid,&articleReview,&articlelabel,&isuse)
 			single["articleTitle"] = articletitle
 			single["articleInfo"] = articleinfo
 			single["articleId"] = articleid
+			single["articleReview"] = articleReview
 			single["articleLabel"] = articlelabel
 			single["subDate"] = subdate
 			single["labelId"] = labelid
@@ -263,9 +289,9 @@ func StartServe(){
 		var datas []interface{}
 		for rows.Next() {
 			single := make(map[string]interface{})
-			var articletitle,articleinfo,subdate,articlelabel string
+			var articletitle,articleinfo,articlelabel,subdate,articleView string
 			var articleid,labelid,isuse int
-			err = rows.Scan(&labelid,&articletitle,&articleinfo,&articleid,&subdate,&articlelabel,&isuse)
+			err = rows.Scan(&labelid,&articletitle,&articleinfo,&subdate,&articleid,&articleView,&articlelabel,&isuse)
 			if err != nil {
 				fmt.Println(err)
 				break
@@ -274,6 +300,7 @@ func StartServe(){
 			single["articleInfo"] = articleinfo
 			single["articleId"] = articleid
 			single["subDate"] = subdate
+			single["articleView"] = articleView
 			single["labelId"] = labelid
 			datas = append(datas,single)
 		}
@@ -296,13 +323,19 @@ func StartServe(){
 	http.HandleFunc("/login", func(writer http.ResponseWriter, request *http.Request) {
 		session.Login(writer,request)
 	})
-	http.HandleFunc("/", func(writer http.ResponseWriter, request *http.Request) {
-		t,err := template.ParseFiles("index.html")
-		if err != nil {
-			fmt.Print("未找到文件")
-		}
-		t.Execute(writer,nil)
-	})
+	//fsh := http.FileServer(http.Dir("./dist/assets/"))
+	//http.Handle("/assets/", http.StripPrefix("/assets/", fsh))
+	//http.HandleFunc("/", func(writer http.ResponseWriter, request *http.Request) {
+	//	path,err := getCurrentPath()
+	//	if err != nil {
+	//		fmt.Println(err,"ask了解大陆开始")
+	//	}
+	//	t,err := template.ParseFiles(path+"./dist/index.html")
+	//	if err != nil {
+	//		fmt.Print("未找到文件")
+	//	}
+	//	t.Execute(writer,nil)
+	//})
 	//用户退出
 	http.HandleFunc("/logout", func(writer http.ResponseWriter, request *http.Request) {
 		session.Logout(writer,request)
